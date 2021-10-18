@@ -5,6 +5,7 @@ import dill
 import os
 import options
 import random
+import sys
 import numpy as np
 from collections import OrderedDict
 
@@ -17,7 +18,7 @@ import utils
 from meters import AverageMeter
 from discriminator import Discriminator
 from generator import LSTMModel
-from train_generator import train_g
+from train_generator import *
 from train_discriminator import train_d
 from PGLoss import PGLoss
 
@@ -46,6 +47,7 @@ def main(args):
     # Load dataset
     splits = ['train', 'valid']
     if data.has_binary_files(args.data, splits):
+        print(args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
         dataset = data.load_dataset(
             args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
     else:
