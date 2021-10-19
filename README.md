@@ -22,7 +22,7 @@ The file `train_generator.py` is a traditional NMT, which is similar to NMT-GAN 
 
 To train NMT-GAN model, please use following command:
 ```
-python joint_train.py --data data-bin/iwslt15.tokenized.cs-en/  --src_lang de --trg_lang en --learning_rate 1e-3 --joint-batch-size 64 --gpuid 0 --clip-norm 1.0 --epochs 10
+python joint_train.py --data data-bin/iwslt14.tokenized.cs-en/  --src_lang de --trg_lang en --learning_rate 1e-3 --joint-batch-size 64 --gpuid 0 --clip-norm 1.0 --epochs 10
 ```
 This will save the model in checkpoints folder (make sure GPU is enabled)
 
