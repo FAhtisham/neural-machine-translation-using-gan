@@ -5,7 +5,8 @@ Adversarial Training or Generative Adversarial Networks have shown great promise
 Here I am trying to investigate how a GAN-NMT can be used to predict mutations in the case of SARS-COV-2
 
 ### Dataset for Mutation Prediciton GAN-NMT
-
+- Sequences downloaded from GISAID
+- Pair formed by the application of ML algorithms i.e. K-means clustering, Nearest Neighbors, Euclidean Distance.
 
 ### Dataset for original GAN-NMT
 
