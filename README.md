@@ -2,9 +2,12 @@
 
 Adversarial Training or Generative Adversarial Networks have shown great promise in Image Generation and are able to achieve state-of-the-art results. However, For sequential data such as text, training GANs has proven to be difficult. One reason is because of non-differentiable nature of generating text with R NNs. Consequently, there have been past work where GANs have been employed for NLP tasks such as text generation, sequence labelling, etc. As a part of directed research, I examine one such application of GAN with RNN called Adversarial Neural Machine Translation.
 
-Here, I manage to investigate how NMT-GAN works and implement an NMT-GAN model according to the work of (Lijun Wu et al., 2017) and finally compare it with traditional NMT models. The model was run on german-english and czech-english dataset.
+Here I am trying to investigate how a GAN-NMT can be used to predict mutations in the case of SARS-COV-2
 
-### Dataset
+### Dataset for Mutation Prediciton GAN-NMT
+
+
+### Dataset for original GAN-NMT
 
 Here, i make use of freely available IWSLT'14 dataset. The dataset is downloaded and preprocessed through facebook `fairseq` toolkit
 
