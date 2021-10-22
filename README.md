@@ -1,10 +1,12 @@
 ## Neural Machine Translation using Adversarial Training
 
-Adversarial Training or Generative Adversarial Networks have shown great promise in Image Generation and are able to achieve state-of-the-art results. However, For sequential data such as text, training GANs has proven to be difficult. One reason is because of non-differentiable nature of generating text with R NNs. Consequently, there have been past work where GANs have been employed for NLP tasks such as text generation, sequence labelling, etc. As a part of directed research, I examine one such application of GAN with RNN called Adversarial Neural Machine Translation.
+Here I am trying to investigate how a GAN-NMT can be used to predict mutations in the case of SARS-COV-2
 
-Here, I manage to investigate how NMT-GAN works and implement an NMT-GAN model according to the work of (Lijun Wu et al., 2017) and finally compare it with traditional NMT models. The model was run on german-english and czech-english dataset.
+### Dataset for Mutation Prediciton GAN-NMT
+- Sequences downloaded from GISAID
+- Pair formed by the application of ML algorithms i.e. K-means clustering, Nearest Neighbors, Euclidean Distance.
 
-### Dataset
+### Dataset for original GAN-NMT
 
 Here, i make use of freely available IWSLT'14 dataset. The dataset is downloaded and preprocessed through facebook `fairseq` toolkit
 
@@ -22,7 +24,7 @@ The file `train_generator.py` is a traditional NMT, which is similar to NMT-GAN 
 
 To train NMT-GAN model, please use following command:
 ```
-python joint_train.py --data data-bin/iwslt15.tokenized.cs-en/  --src_lang de --trg_lang en --learning_rate 1e-3 --joint-batch-size 64 --gpuid 0 --clip-norm 1.0 --epochs 10
+python joint_train.py --data data-bin/iwslt14.tokenized.de-en/  --src_lang de --trg_lang en --learning_rate 1e-3 --joint-batch-size 64 --gpuid 0 --clip-norm 1.0 --epochs 10
 ```
 This will save the model in checkpoints folder (make sure GPU is enabled)
 
