@@ -16,14 +16,14 @@ from torch.autograd import Variable
 import data
 import utils
 from meters import AverageMeter
-from discriminator import Discriminator
+from discriminator import *
 from generator import LSTMModel
 from train_generator import *
 from train_discriminator import train_d
 from PGLoss import PGLoss
 
 
-
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S', level=logging.DEBUG)
@@ -43,25 +43,33 @@ options.add_generation_args(parser)
 def main(args):
     use_cuda = (len(args.gpuid) >= 1)
     print("{0} GPU(s) are available".format(cuda.device_count()))
-
+    print(args.data)
     # Load dataset
     splits = ['train', 'valid']
+    
+    
+    
     if data.has_binary_files(args.data, splits):
         print(args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
+        
         dataset = data.load_dataset(
             args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
     else:
         dataset = data.load_raw_text_dataset(
             args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
+    exit() 
     if args.src_lang is None or args.trg_lang is None:
         # record inferred languages in args, so that it's saved in checkpoints
         args.src_lang, args.trg_lang = dataset.src, dataset.dst
 
     print('| [{}] dictionary: {} types'.format(dataset.src, len(dataset.src_dict)))
     print('| [{}] dictionary: {} types'.format(dataset.dst, len(dataset.dst_dict)))
+    print(splits)
     
+
     for split in splits:
         print('| {} {} {} examples'.format(args.data, split, len(dataset.splits[split])))
+    
     
     g_logging_meters = OrderedDict()
     g_logging_meters['train_loss'] = AverageMeter()
@@ -86,13 +94,16 @@ def main(args):
     args.decoder_out_embed_dim = 1000
     args.decoder_dropout_out = 0
     args.bidirectional = False
-
+    
     generator = LSTMModel(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
     print("Generator loaded successfully!")
+    
+    print(generator)
+    
     discriminator = Discriminator(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
     print("Discriminator loaded successfully!")
-
     
+    print(vars(discriminator))
     if use_cuda:
         if torch.cuda.device_count() > 1:
             discriminator = torch.nn.DataParallel(discriminator).cuda()
@@ -103,7 +114,9 @@ def main(args):
     else:
         discriminator.cpu()
         generator.cpu()
-
+    
+    # print(vars(discriminator))
+    
     # adversarial training checkpoints saving path
     if not os.path.exists('checkpoints/joint'):
         os.makedirs('checkpoints/joint')
@@ -115,21 +128,21 @@ def main(args):
     pg_criterion = PGLoss(ignore_index=dataset.dst_dict.pad(), size_average=True,reduce=True)
 
     # fix discriminator word embedding (as Wu et al. do)
-    for p in discriminator.embed_src_tokens.parameters():
+    for p in discriminator.module.embed_src_tokens.parameters():
         p.requires_grad = False
-    for p in discriminator.embed_trg_tokens.parameters():
+    for p in discriminator.module.embed_trg_tokens.parameters():
         p.requires_grad = False
 
     # define optimizer
     g_optimizer = eval("torch.optim." + args.g_optimizer)(filter(lambda x: x.requires_grad,
-                                                                 generator.parameters()),
-                                                          args.g_learning_rate)
+                                                                generator.parameters()),
+                                                        args.g_learning_rate)
 
     d_optimizer = eval("torch.optim." + args.d_optimizer)(filter(lambda x: x.requires_grad,
-                                                                 discriminator.parameters()),
-                                                          args.d_learning_rate,
-                                                          momentum=args.momentum,
-                                                          nesterov=True)
+                                                                discriminator.parameters()),
+                                                        args.d_learning_rate,
+                                                        momentum=args.momentum,
+                                                        nesterov=True)
 
     # start joint training
     best_dev_loss = math.inf

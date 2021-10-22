@@ -12,8 +12,6 @@ class Discriminator(nn.Module):
         self.pad_idx = dst_dict.pad()
         self.fixed_max_len = args.fixed_max_len
         self.use_cuda = use_cuda
-
-
         self.embed_src_tokens = Embedding(len(src_dict), args.encoder_embed_dim, src_dict.pad())
         self.embed_trg_tokens = Embedding(len(dst_dict), args.decoder_embed_dim, dst_dict.pad())
 
@@ -63,9 +61,9 @@ class Discriminator(nn.Module):
         
         out = out.permute(0,3,1,2)
         
-        out = self.conv1(out)
+        out = self.conv1(out.contiguous())
         out = self.conv2(out)
-        
+        # out = out.contiguous()        
         out = out.permute(0, 2, 3, 1)
         
         out = out.contiguous().view(batch_size, -1)

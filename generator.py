@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import utils
-
+import warnings
+warnings.filterwarnings('ignore')
 
 class LSTMModel(nn.Module):
     def __init__(self, args, src_dict, dst_dict, use_cuda=True):
@@ -161,6 +162,9 @@ class LSTMDecoder(nn.Module):
         if embed_dim != out_embed_dim:
             self.additional_fc = Linear(embed_dim, out_embed_dim)
         self.fc_out = Linear(out_embed_dim, num_embeddings, dropout=dropout_out)
+        
+        
+
 
 
     def forward(self, prev_output_tokens, encoder_out, incremental_state=None):
@@ -197,7 +201,7 @@ class LSTMDecoder(nn.Module):
         for j in range(seqlen):
             # input feeding: concatenate context vector from previous time step
             input = torch.cat((x[j, :, :], input_feed), dim=1)
-
+            
             for i, rnn in enumerate(self.layers):
                 # recurrent cell
                 hidden, cell = rnn(input, (prev_hiddens[i], prev_cells[i]))
