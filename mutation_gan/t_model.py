@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from collections import Counter
 from tqdm import tqdm 
 
-
+import os
 from timeit import default_timer as timer
 
 class Trigrams:
@@ -141,11 +141,12 @@ def collate(data):
 
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
+
 PAD_IDX =0
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, embedding_size, dropout, max_len=1275): 
+    def __init__(self, embedding_size, dropout, max_len=1276): 
         super(PositionalEncoding, self).__init__()
         
         # computing the inner part
@@ -165,7 +166,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pos_embedding', pos_embedding)
         
     def forward(self, input_embedding):
-        print(input_embedding.size(), self.pos_embedding.size())
+        # print(input_embedding.size(), self.pos_embedding.size())
         return self.dropout(input_embedding + self.pos_embedding[:input_embedding.size(0),:])
         
         
@@ -188,11 +189,12 @@ class Mutation_Transformer(nn.Module):
         self.pos_encoding = PositionalEncoding(embeddings_size, dropout)
         
     def forward(self,src, trg, src_mask, trg_mask, src_pmask, trg_pmask, memory_key_padding_mask):
+        src_embedding = self.pos_encoding(self.src_embedding(src))
+        trg_embedding = self.pos_encoding(self.trg_embedding(trg))
         
-        src_embedding = self.pos_encoding(src)
-        trg_embedding = self.pos_encoding(trg)
-        
-        outputs = self.transofmer(src_embedding, trg_embedding, src_mask, trg_mask, None, 
+        # print("src : ", src_embedding.size(), src_mask.size(), src_pmask.size(),"targ:", trg_embedding.size(), trg_mask.size(), trg_pmask.size(),"mem", memory_key_padding_mask.size() )
+
+        outputs = self.transformer(src_embedding, trg_embedding, src_mask, trg_mask, None, 
                                 src_pmask, trg_pmask, memory_key_padding_mask)
         
         return self.generator(outputs)
@@ -242,41 +244,48 @@ def train_iter(model, optimizer, dataloader):
         src = src.to(DEVICE)
         trg = trg.to(DEVICE)
         
-        #explore this line
+        
+        #explore this line, reducing the dimesnions causes issues, (len-1, batch size) this case (l2n, batch size)
         trg_input = trg[:-1,:]
+        # trg_input = trg
+        
+        # print(src.size(), trg.size(), trg_input.size())
+
         
         src_mask, trg_mask, src_pmask, trg_pmask = create_mask(src, trg_input)
         
-        # print(src.size(), trg.size(), src_mask.)
         logits = model(src, trg_input, src_mask, trg_mask, src_pmask, trg_pmask, src_pmask)
         
-        optimizer.zero_grad()
         
         trg_output=trg[1:,:]
         
-        # loss = loss_func(logits.reshape(-1, logits.shape[-1]), trg_output.reshape(-1))
+        loss = loss_func(logits.reshape(-1, logits.shape[-1]), trg_output.reshape(-1))
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        losses+=loss.item()
         
-        # loss.backward()
-        # optimizer.step()
-        # loss+=loss.item()
+        print(loss.item())
         
     return losses/len(dataloader)
-        
-        
-        
-        
+     
+def decode(decoding_type, model, src, src_mask, max_len, start_sym):
+    src = src.to(DEVICE)
+    src_mask = src_mask.to(DEVICE)
     
-src_vocab_size = 0 
-trg_vocab_size = 0
+    
+    
+src_vocab_size = 64 
+trg_vocab_size = 65
 
-embeddings_size = 512
+embeddings_size = 256
 n_head = 8
 linear_size = 512
 n_encoder_layers = 4
 n_decoder_layers = 4
 dropout = 0.2
 
-batch_size = 32
+batch_size = 2
 shuffle = False
 pin_memory = True
 num_workers = 8
@@ -294,7 +303,7 @@ loss_func = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 optimizer = torch.optim.Adam(transformer.parameters(), lr = 0.0001, betas = (0.9,0.98), eps = 1e-9)
 
 
-print("Model Created ... \nAsscoiating the dataset .....")
+print("Model Created ... \nAssociating the dataset .....")
 
 
 
@@ -308,6 +317,7 @@ epochs = 5
 for i in range(epochs):
     start_time = timer()
     train_loss = train_iter(transformer, optimizer,loader)
+    print(train_loss)
     end_time = timer()  
     
 
