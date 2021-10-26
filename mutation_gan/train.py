@@ -30,19 +30,10 @@ class Trigrams:
         else:
             self.trigram2count[trigram] += 1
             
-
-        
-
-class AttributeDict(dict):
-    
-    def __init__(self, *av, **kv):
-        dict.__init__(self, *av, **kv)
-        self.__dict__=self
-
 class NucDataset(Dataset): 
     def __init__(self, datat_dir):
         self.data_dir = datat_dir
-        self.sequence_pairs = open(datat_dir, 'r', encoding='utf-8').read().split('\n')
+        self.sequence_pairs = open(datat_dir, 'r',  encoding='utf8').read().split('\n')
         self.sequence_pairs = [[s.split() for s in l.split('\t')] for l in self.sequence_pairs]
         
         self.src_seqs, self.trg_seqs= self.get_src_trg(self.sequence_pairs)
@@ -60,7 +51,6 @@ class NucDataset(Dataset):
         print('- Number of target sentences: {}'.format(len(self.trg_seqs)))
         print('- Source vocabulary size: {}'.format(len(self.src_vocab.trigram2index)))
         print('- Target vocabulary size: {}'.format(len(self.trg_vocab.trigram2index)))
-        print('- Target vocabulary size: {}'.format(self.trg_vocab.trigram2index))
         
         
     def __len__(self): 
@@ -110,7 +100,7 @@ class NucDataset(Dataset):
         src_seq_n = self.trigram2indexes(src_seq, self.src_vocab.trigram2index)
         trg_seq_n = self.trigram2indexes(trg_seq, self.trg_vocab.trigram2index)
         # return src_seq, src_seq_n, trg_seq, trg_seq_n
-        return torch.tensor(src_seq_n), torch.tensor(trg_seq_n)
+        return src_seq,torch.tensor(src_seq_n),  trg_seq,torch.tensor(trg_seq_n)
 
 def get_loader(data_dir, batch_size, num_workers, shuffle, pin_memory=True):
     dataset = NucDataset(data_dir)
@@ -118,26 +108,29 @@ def get_loader(data_dir, batch_size, num_workers, shuffle, pin_memory=True):
                             batch_size = batch_size,
                             num_workers = num_workers,
                             shuffle=shuffle,
-                            pin_memory=pin_memory)
+                            pin_memory=pin_memory,
+                            collate_fn=collate)
     return loader, dataset
 
 
-class collate(data): 
+def collate(data): 
     def _pad_sequences(seqs):
         lens=[len(seq) for seq in seqs]
         padded_seqs = torch.zeros(len(seqs),max(lens)).long()
         for i, seq in enumerate(seqs):
             end = lens[i]
-            padded_seqs[i,:end] = torch.longTensor(seq[:end])
+            padded_seqs[i,:end] = torch.LongTensor(seq[:end])
         return padded_seqs, lens
         
     src_seqs, src_seq_n, trg_seqs, trg_seq_n=zip(*data)
     src_seq_n, src_lens = _pad_sequences(src_seq_n)
     trg_seq_n, trg_lens = _pad_sequences(trg_seq_n)
-
     src_seq_n= src_seq_n.transpose(0,1)
     trg_seq_n= trg_seq_n.transpose(0,1)
-
+    return src_seq_n, trg_seq_n, src_seqs, trg_seqs, src_lens, trg_lens
+    
+    
+#################################
 data_dir = "/raid/Datasets/aimpid/PairedTextFiles/Nucleotides/ahtisham/Final_w_io.txt"
 batch_size = 32
 shuffle = False
@@ -146,4 +139,14 @@ num_workers = 8
 loader, dataset = get_loader(data_dir, batch_size, num_workers, shuffle, pin_memory)        
         
         
-print(next(iter(loader)))
+for i in range(1):
+    print("Chala")
+    for i, batch in enumerate(loader):
+        print(i)
+        # batch =  batch.cuda()
+        x,y,_,_,_,_ = batch
+        # x,y=batch
+        print(type(x), type(y))
+
+        
+        
