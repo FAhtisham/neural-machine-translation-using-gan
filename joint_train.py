@@ -57,7 +57,7 @@ def main(args):
     else:
         dataset = data.load_raw_text_dataset(
             args.data, splits, args.src_lang, args.trg_lang, args.fixed_max_len)
-    exit() 
+    
     if args.src_lang is None or args.trg_lang is None:
         # record inferred languages in args, so that it's saved in checkpoints
         args.src_lang, args.trg_lang = dataset.src, dataset.dst
@@ -97,7 +97,8 @@ def main(args):
     
     generator = LSTMModel(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
     print("Generator loaded successfully!")
-    
+    print(dataset.src_dict)
+    exit() 
     print(generator)
     
     discriminator = Discriminator(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
