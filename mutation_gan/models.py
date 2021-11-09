@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch.autograd import Variable
+
 import math
 
 from torch.utils.data import Dataset, DataLoader
@@ -16,11 +18,12 @@ from timeit import default_timer as timer
 class LSTMModel(nn.Module):
     def __init__(self, args, src_dict, dst_dict, use_cuda=True):
         super(LSTMModel, self).__init__()
+        print()
         self.args = args
         self.use_cuda = use_cuda
         self.src_dict = src_dict
         self.dst_dict = dst_dict
-
+        print('encoder initiazer')
         # Initialize encoder and decoder
         self.encoder = LSTMEncoder(
             src_dict,
@@ -29,6 +32,7 @@ class LSTMModel(nn.Module):
             dropout_in=args.encoder_dropout_in,
             dropout_out=args.encoder_dropout_out,
         )
+        print('decoder initiazer')
         self.decoder = LSTMDecoder(
             dst_dict,
             encoder_embed_dim=args.encoder_embed_dim,
@@ -39,12 +43,13 @@ class LSTMModel(nn.Module):
             dropout_out=args.decoder_dropout_out,
             use_cuda=use_cuda
         )
+        print("Sb k bad ")
 
-    def forward(self, sample):
+    def forward(self, src):
         # encoder_output: (seq_len, batch, hidden_size * num_directions)
         # _encoder_hidden: (num_layers * num_directions, batch, hidden_size)
         # _encoder_cell: (num_layers * num_directions, batch, hidden_size)
-        encoder_out = self.encoder(sample['net_input']['src_tokens'], sample['net_input']['src_lengths'])
+        encoder_out = self.encoder(src['src'])
         
         # # The encoder hidden is  (layers*directions) x batch x dim.   
         # # If it's bidirectional, We need to convert it to layers x batch x (directions*dim).
@@ -52,13 +57,13 @@ class LSTMModel(nn.Module):
         #     encoder_hiddens = torch.cat([encoder_hiddens[0:encoder_hiddens.size(0):2], encoder_hiddens[1:encoder_hiddens.size(0):2]], 2)
         #     encoder_cells = torch.cat([encoder_cells[0:encoder_cells.size(0):2], encoder_cells[1:encoder_cells.size(0):2]], 2)
 
-        decoder_out, attn_scores = self.decoder(sample['net_input']['prev_output_tokens'], encoder_out)
-        decoder_out = F.log_softmax(decoder_out, dim=2)
+        # decoder_out, attn_scores = self.decoder(sample['net_input']['prev_output_tokens'], encoder_out)
+        # decoder_out = F.log_softmax(decoder_out, dim=2)
         
         # sys_out_batch = decoder_out.contiguous().view(-1, decoder_out.size(-1))
         # loss = F.nll_loss(sys_out_batch, train_trg_batch, reduction='sum', ignore_index=self.dst_dict.pad())        
         
-        return decoder_out
+        return 0 #decoder_out
 
     def get_normalized_probs(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""
@@ -78,8 +83,8 @@ class LSTMEncoder(nn.Module):
         self.dropout_out = dropout_out
 
         num_embeddings = len(dictionary)
-        self.padding_idx = dictionary.pad()
-        self.embed_tokens = Embedding(num_embeddings, embed_dim, self.padding_idx)
+        # self.padding_idx = dictionary.pad()
+        self.embed_tokens = Embedding(num_embeddings, embed_dim)
 
         self.lstm = LSTM(
             input_size=embed_dim,
@@ -89,13 +94,13 @@ class LSTMEncoder(nn.Module):
             bidirectional=False,
         )
 
-    def forward(self, src_tokens, src_lengths):
+    def forward(self, src_tokens):
 
         bsz, seqlen = src_tokens.size()
 
         # embed tokens
         x = self.embed_tokens(src_tokens)
-        x = F.dropout(x, p=self.dropout_in, training=self.training)
+        x = F.dropout(x, p=self.dropout_in)# training=self.training
         embed_dim = x.size(2)
 
         # B x T x C -> T x B x C
@@ -158,8 +163,8 @@ class LSTMDecoder(nn.Module):
         self.dropout_out = dropout_out
 
         num_embeddings = len(dictionary)
-        padding_idx = dictionary.pad()
-        self.embed_tokens = Embedding(num_embeddings, embed_dim, padding_idx)
+        # padding_idx = dictionary.pad()
+        self.embed_tokens = Embedding(num_embeddings, embed_dim)
 
         self.layers = nn.ModuleList([
             LSTMCell(encoder_embed_dim + embed_dim if layer == 0 else embed_dim, embed_dim)
@@ -304,11 +309,11 @@ class Discriminator(nn.Module):
 
         self.src_dict_size = len(src_dict)
         self.trg_dict_size = len(dst_dict)
-        self.pad_idx = dst_dict.pad()
+        # self.pad_idx = dst_dict.pad()
         self.fixed_max_len = args.fixed_max_len
         self.use_cuda = use_cuda
-        self.embed_src_tokens = Embedding(len(src_dict), args.encoder_embed_dim, src_dict.pad())
-        self.embed_trg_tokens = Embedding(len(dst_dict), args.decoder_embed_dim, dst_dict.pad())
+        self.embed_src_tokens = Embedding(len(src_dict), args.encoder_embed_dim, )
+        self.embed_trg_tokens = Embedding(len(dst_dict), args.decoder_embed_dim)
 
 
         self.conv1 = nn.Sequential(
@@ -397,7 +402,7 @@ def Linear(in_features, out_features, bias=True, dropout=0):
     return m
 
 
-def Embedding(num_embeddings, embedding_dim, padding_idx):
-    m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
+def Embedding(num_embeddings, embedding_dim):
+    m = nn.Embedding(num_embeddings, embedding_dim)
     m.weight.data.uniform_(-0.1, 0.1)
     return m

@@ -42,6 +42,7 @@ options.add_generation_args(parser)
 
 def main(args):
     use_cuda = (len(args.gpuid) >= 1)
+    print(use_cuda)
     print("{0} GPU(s) are available".format(cuda.device_count()))
     print(args.data)
     # Load dataset
@@ -97,13 +98,11 @@ def main(args):
     
     generator = LSTMModel(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
     print("Generator loaded successfully!")
-    print(dataset.src_dict)
-    exit() 
+
     print(generator)
     
     discriminator = Discriminator(args, dataset.src_dict, dataset.dst_dict, use_cuda=use_cuda)
     print("Discriminator loaded successfully!")
-    
     print(vars(discriminator))
     if use_cuda:
         if torch.cuda.device_count() > 1:
@@ -185,6 +184,10 @@ def main(args):
         update_learning_rate(num_update, 8e4, args.g_learning_rate, args.lr_shrink, g_optimizer)
 
         for i, sample in enumerate(trainloader):
+            print(sample['net_input'])
+            exit()
+            # print("oye", sample['net_input']['src_tokens'])
+            
 
             if use_cuda:
                 # wrap input tensors in cuda tensors
@@ -198,7 +201,7 @@ def main(args):
                 print("Policy Gradient Training")
                 
                 sys_out_batch = generator(sample) # 64 X 50 X 6632
-
+                
                 out_batch = sys_out_batch.contiguous().view(-1, sys_out_batch.size(-1)) # (64 * 50) X 6632   
                  
                 _,prediction = out_batch.topk(1)

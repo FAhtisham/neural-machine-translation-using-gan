@@ -15,7 +15,7 @@ class Trigrams:
     def __init__(self, all_seqs):
         self.all_seqs = all_seqs
         self.trigram2index = {"SOS": 0, "EOS":1}
-        self.index2trigram = {}
+        self.index2trigram = {0:"SOS", 1:"EOS"}
         self.trigram2count = {}
         self.num_trigrams = 2 # initially set to 2, (sos, eos)
         
@@ -105,10 +105,13 @@ class NucDataset(Dataset):
         
         src_seq_n = self.trigram2indexes(src_seq, self.src_vocab.trigram2index)
         trg_seq_n = self.trigram2indexes(trg_seq, self.trg_vocab.trigram2index)
+        sample = {"src": src_seq_n, "trg": trg_seq_n}
 
         # return src_seq, src_seq_n, trg_seq, trg_seq_n
-        return src_seq,torch.tensor(src_seq_n),  trg_seq,torch.tensor(trg_seq_n)
+        # return src_seq,torch.tensor(src_seq_n),  trg_seq,torch.tensor(trg_seq_n)
+        return sample
 
+            
 def get_loader(data_obj, batch_size, num_workers, shuffle, pin_memory=True):
     # dataset = NucDataset(data_dir)
     loader = DataLoader(    dataset= data_obj,
@@ -116,27 +119,33 @@ def get_loader(data_obj, batch_size, num_workers, shuffle, pin_memory=True):
                             num_workers = num_workers,
                             shuffle=shuffle,
                             pin_memory=pin_memory,
-                            collate_fn=collate)
+                            collate_fn=None)
     return loader, data_obj
 
 
 def collate(data): 
-    def _pad_sequences(seqs):
-        lens=[len(seq) for seq in seqs]
-        padded_seqs = torch.zeros(len(seqs),max(lens)).long()
-        for i, seq in enumerate(seqs):
-            end = lens[i]
-            padded_seqs[i,:end] = torch.LongTensor(seq[:end])
-        return padded_seqs, lens
-        
-    src_seqs, src_seq_n, trg_seqs, trg_seq_n=zip(*data)
-    src_seq_n, src_lens = _pad_sequences(src_seq_n)
-    trg_seq_n, trg_lens = _pad_sequences(trg_seq_n)
+    # def _pad_sequences(seqs):
+    #     lens=[len(seq) for seq in seqs]
+    #     padded_seqs = torch.zeros(len(seqs),max(lens)).long()
+    #     for i, seq in enumerate(seqs):
+    #         end = lens[i]
+    #         padded_seqs[i,:end] = torch.LongTensor(seq[:end])
+    #     return padded_seqs, lens
+    print(list(data))     
+    src_seqs, src_seq_n, trg_seqs, trg_seq_n=zip(data) # removed *
+    
+    exit()
+    # src_seq_n, src_lens = _pad_sequences(src_seq_n)
+    # trg_seq_n, trg_lens = _pad_sequences(trg_seq_n)
 
     # src_seq_n= src_seq_n.transpose(0,1)
     # trg_seq_n= trg_seq_n.transpose(0,1)
     
-    return src_seq_n, trg_seq_n, src_seqs, trg_seqs, src_lens, trg_lens
+    print("test")
+    print(type(src_seq_n), type(trg_seq_n))
+    src_seq_n = torch.tensor(src_seq_n)
+    trg_seq_n=torch.tensor(trg_seq_n)
+    return src_seq_n, trg_seq_n, src_seqs, trg_seqs
 
 
 

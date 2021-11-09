@@ -64,7 +64,7 @@ class LSTMModel(nn.Module):
 
 class LSTMEncoder(nn.Module):
     """LSTM encoder."""
-    def __init__(self, dictionary, embed_dim=512, num_layers=1, dropout_in=0.1, dropout_out=0.1):
+    def __init__(self, dictionary, embed_dim=256, num_layers=1, dropout_in=0.1, dropout_out=0.1):
         super(LSTMEncoder, self).__init__()
         self.num_layers = num_layers
         self.dropout_in = dropout_in
@@ -83,17 +83,18 @@ class LSTMEncoder(nn.Module):
         )
 
     def forward(self, src_tokens, src_lengths):
-
+        print('src_tokens: ',type(src_tokens),src_tokens.size())
         bsz, seqlen = src_tokens.size()
 
         # embed tokens
         x = self.embed_tokens(src_tokens)
+        (print('S0'))
         x = F.dropout(x, p=self.dropout_in, training=self.training)
         embed_dim = x.size(2)
-
+        print("S1")
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
-
+        
         # # pack embedded source tokens into a PackedSequence
         # packed_x = nn.utils.rnn.pack_padded_sequence(x, src_lengths.data.tolist())
 
@@ -104,10 +105,11 @@ class LSTMEncoder(nn.Module):
             x,
             (h0, c0),
         )
-
+        print("S2")
         # unpack outputs and apply dropout
         # x, _ = nn.utils.rnn.pad_packed_sequence(packed_outs, padding_value=0.)
         x = F.dropout(x, p=self.dropout_out, training=self.training)
+        print("S3")
         assert list(x.size()) == [seqlen, bsz, embed_dim]
 
         return x, final_hiddens, final_cells
