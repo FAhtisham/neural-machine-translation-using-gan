@@ -12,6 +12,8 @@ class Discriminator(nn.Module):
         self.pad_idx = dst_dict.pad()
         self.fixed_max_len = args.fixed_max_len
         self.use_cuda = use_cuda
+
+
         self.embed_src_tokens = Embedding(len(src_dict), args.encoder_embed_dim, src_dict.pad())
         self.embed_trg_tokens = Embedding(len(dst_dict), args.decoder_embed_dim, dst_dict.pad())
 
@@ -50,24 +52,29 @@ class Discriminator(nn.Module):
 
     def forward(self, src_sentence, trg_sentence):
         batch_size = src_sentence.size(0)
+        print("0",src_sentence.size(), trg_sentence.size())
 
         src_out = self.embed_src_tokens(src_sentence)
         trg_out = self.embed_src_tokens(trg_sentence)
+        print("1",src_out.size(), trg_out.size())
 
         src_out = torch.stack([src_out] * trg_out.size(1), dim=2)
         trg_out = torch.stack([trg_out] * src_out.size(1), dim=1)
-        
+        print("2",src_out.size(), trg_out.size())
+
         out = torch.cat([src_out, trg_out], dim=3)
+        print("before permute", out.size())
         
         out = out.permute(0,3,1,2)
-        
-        out = self.conv1(out.contiguous())
+        print("after permute", out.size())
+        out = self.conv1(out)
         out = self.conv2(out)
-        # out = out.contiguous()        
+        print("After 2nd conv", out.size())
         out = out.permute(0, 2, 3, 1)
         
         out = out.contiguous().view(batch_size, -1)
-        
+        print("Final ", out.size())
+        exit()
         out = torch.sigmoid(self.classifier(out))
 
         return out

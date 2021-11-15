@@ -11,6 +11,7 @@ import logging
 import os
 import torch
 import traceback
+import unicodedata
 
 from torch.autograd import Variable
 from torch.serialization import default_restore_location
@@ -71,4 +72,20 @@ def set_incremental_state(module, incremental_state, key, value):
     if incremental_state is not None:
         full_key = _get_full_incremental_state_key(module, key)
         incremental_state[full_key] = value
+        
+def indexesFromSequence(lang, sequence):
+    return [[lang.trigram2index[trigram] for trigram in sequence]]#.split(' ')]
+
+def normalizeString2(s):
+    s = unicodeToAscii(s.strip())    
+    # s = re.sub(r"([.!?])", r" \1", s)
+    # s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    s = s.split()
+    return s
+
+def unicodeToAscii(s):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', s)
+        if unicodedata.category(c) != 'Mn'
+    )
 

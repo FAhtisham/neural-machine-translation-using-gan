@@ -3,8 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import utils
-import warnings
-warnings.filterwarnings('ignore')
+
 
 class LSTMModel(nn.Module):
     def __init__(self, args, src_dict, dst_dict, use_cuda=True):
@@ -64,7 +63,7 @@ class LSTMModel(nn.Module):
 
 class LSTMEncoder(nn.Module):
     """LSTM encoder."""
-    def __init__(self, dictionary, embed_dim=256, num_layers=1, dropout_in=0.1, dropout_out=0.1):
+    def __init__(self, dictionary, embed_dim=512, num_layers=1, dropout_in=0.1, dropout_out=0.1):
         super(LSTMEncoder, self).__init__()
         self.num_layers = num_layers
         self.dropout_in = dropout_in
@@ -83,18 +82,17 @@ class LSTMEncoder(nn.Module):
         )
 
     def forward(self, src_tokens, src_lengths):
-        print('src_tokens: ',type(src_tokens),src_tokens.size())
+
         bsz, seqlen = src_tokens.size()
 
         # embed tokens
         x = self.embed_tokens(src_tokens)
-        (print('S0'))
         x = F.dropout(x, p=self.dropout_in, training=self.training)
         embed_dim = x.size(2)
-        print("S1")
+
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
-        
+
         # # pack embedded source tokens into a PackedSequence
         # packed_x = nn.utils.rnn.pack_padded_sequence(x, src_lengths.data.tolist())
 
@@ -105,11 +103,10 @@ class LSTMEncoder(nn.Module):
             x,
             (h0, c0),
         )
-        print("S2")
+
         # unpack outputs and apply dropout
         # x, _ = nn.utils.rnn.pad_packed_sequence(packed_outs, padding_value=0.)
         x = F.dropout(x, p=self.dropout_out, training=self.training)
-        print("S3")
         assert list(x.size()) == [seqlen, bsz, embed_dim]
 
         return x, final_hiddens, final_cells
@@ -164,9 +161,6 @@ class LSTMDecoder(nn.Module):
         if embed_dim != out_embed_dim:
             self.additional_fc = Linear(embed_dim, out_embed_dim)
         self.fc_out = Linear(out_embed_dim, num_embeddings, dropout=dropout_out)
-        
-        
-
 
 
     def forward(self, prev_output_tokens, encoder_out, incremental_state=None):
@@ -203,7 +197,7 @@ class LSTMDecoder(nn.Module):
         for j in range(seqlen):
             # input feeding: concatenate context vector from previous time step
             input = torch.cat((x[j, :, :], input_feed), dim=1)
-            
+
             for i, rnn in enumerate(self.layers):
                 # recurrent cell
                 hidden, cell = rnn(input, (prev_hiddens[i], prev_cells[i]))

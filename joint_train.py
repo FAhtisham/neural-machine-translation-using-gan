@@ -184,8 +184,8 @@ def main(args):
         update_learning_rate(num_update, 8e4, args.g_learning_rate, args.lr_shrink, g_optimizer)
 
         for i, sample in enumerate(trainloader):
-            print(sample['net_input'])
-            exit()
+            # print(sample['net_input'])
+     
             # print("oye", sample['net_input']['src_tokens'])
             
 
@@ -291,7 +291,7 @@ def main(args):
             d_loss.backward()
             d_optimizer.step()
 
-
+################################################################ VALIDATION ##########################################################
 
         # validation
         # set validation mode

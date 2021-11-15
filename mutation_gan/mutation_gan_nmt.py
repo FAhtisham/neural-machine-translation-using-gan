@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import cuda
-
+from torch.utils.data import TensorDataset, DataLoader
 
 import math
 
@@ -27,13 +27,16 @@ import arguments
 import utils
 
 use_cuda = True 
+# torch.cuda.set_device(2)
+
+
 
 #####################################################################################
 ##################### Defining the Variables ########################################
 #####################################################################################
 
-DEVICE = torch.device("cuda:3" if torch.cuda.is_available else "cpu")
-
+# DEVICE = torch.device("cuda:3" if torch.cuda.is_available else "cpu")
+# torch.cuda.empty_cache()
 
 
 args = argparse.ArgumentParser(description="Mutation GAN NMT")
@@ -64,54 +67,71 @@ d_logging_meters['valid_acc'] = AverageMeter()
 d_logging_meters['bsz'] = AverageMeter()  # sentences per batch
 
 
-args.encoder_embed_dim = 256
+args.encoder_embed_dim = 128
 args.encoder_layers = 2 # 4
 args.encoder_dropout_out = 0
-args.decoder_embed_dim = 1000
+args.decoder_embed_dim = 128
 args.decoder_layers = 2 # 4
-args.decoder_out_embed_dim = 1000
+args.decoder_out_embed_dim = 128
 args.decoder_dropout_out = 0
 args.bidirectional = False
 
 data_dir = "/raid/Datasets/aimpid/PairedTextFiles/Nucleotides/ahtisham/Final_w_io.txt"
 
-embeddings_size = 512
-n_head = 8
-linear_size = 512
-n_encoder_layers = 3
-n_decoder_layers = 3
-dropout = 0.2
 
-batch_size = 32
+
+batch_size = 8
 shuffle = False
 pin_memory = True
 num_workers = 8
 
 src_vocab_size = 64 
 trg_vocab_size = 65
+SOS_token = 1
+EOS_token = 2
 
-print("Loading Dataset ....")
-data_obj = NucDataset(data_dir)
 
-print("Dataset Loaded ....")
-print(args.encoder_embed_dim, args.encoder_layers)
+input_lang, output_lang, pairs = prepareData('CovNormal','CovMutated', False) 
+pairs = pairs[:-1]
 
-print(len(data_obj.src_vocab.index2trigram))
+    
+src_seqs, trg_seqs = get_gfloat_vals(input_lang, output_lang, pairs)          
+ 
 
-generator = LSTMModel(args, data_obj.src_vocab.index2trigram, data_obj.trg_vocab.index2trigram,  use_cuda=True)
+
+full_dataset = TensorDataset(src_seqs, trg_seqs)
+
+
+
+print(len(full_dataset))
+
+dataloader = DataLoader(full_dataset, batch_size=4, shuffle=False, sampler=None,
+           batch_sampler=None, num_workers=0, collate_fn=None,
+           pin_memory=False, drop_last=False, timeout=0,
+           worker_init_fn=None)
+
+
+
+###### here the editing is required 
+# print("Loading Dataset ....")
+# data_obj = NucDataset(data_dir)
+
+# print("Dataset Loaded ....")
+# print(args.encoder_embed_dim, args.encoder_layers)
+
+# print(len(data_obj.src_vocab.index2trigram))
+
+generator = LSTMModel(args, input_lang.index2trigram, output_lang.index2trigram)
 print(generator)
 
-discriminator = Discriminator(args, data_obj.src_vocab.index2trigram, data_obj.trg_vocab.index2trigram, use_cuda=True)
+discriminator = Discriminator(args, input_lang.index2trigram, output_lang.index2trigram)
 print(discriminator)
-
-
-
 
 
 if use_cuda:
     if torch.cuda.device_count() > 1:
-        discriminator = torch.nn.DataParallel(discriminator).cuda()
-        generator = torch.nn.DataParallel(generator).cuda()
+        discriminator = torch.nn.DataParallel(discriminator, device_ids=[0,3]).cuda()
+        generator = torch.nn.DataParallel(generator,  device_ids=[0,3]).cuda()
     else:
         generator.cuda()
         discriminator.cuda()
@@ -133,7 +153,7 @@ checkpoints_path = 'checkpoints/joint/'
 # define loss function
 g_criterion = torch.nn.NLLLoss( reduction='sum')
 d_criterion = torch.nn.BCELoss()
-pg_criterion = PGLoss( size_average=True,reduce=True)
+pg_criterion = PGLoss(size_average=True,reduce=True)
 
 # # fix discriminator word embedding (as Wu et al. do)
 # for p in discriminator.module.embed_src_tokens.parameters():
@@ -158,31 +178,83 @@ d_optimizer = eval("torch.optim." + args.d_optimizer)(filter(lambda x: x.require
 best_dev_loss = math.inf
 num_update = 0
 
-loader, data_obj= get_loader(data_obj, batch_size, num_workers, shuffle)
+# loader, data_obj= get_loader(data_obj, batch_size, num_workers, shuffle)
     
+epochs = 1
 
-generator.train()
-for i, sample in enumerate(loader):
-    # _,src,_,trg= sample
-    # print("a",src.size(), trg.size())
-    # print(data_obj.src_vocab.index2trigram)
-    # src = src.cuda()
-    # trg = trg.cuda()
-    # if use_cuda:
-    # # wrap input tensors in cuda tensors
-    sample = utils.make_variable(sample, cuda=cuda)
-    # ## part I: use gradient policy method to train the generator
+for i in range(epochs):
+    generator.train()
+    discriminator.train()
+    for i, sample in enumerate(dataloader):
+        print(len(dataloader))
+    
+        src,trg= sample
+        src = src.cuda()
+        trg=trg.cuda()
+        # print("a",src.size(), trg.size())
+        # print(data_obj.src_vocab.index2trigram)
+        # src = src.cuda()
+        # trg = trg.cuda()
+        # if use_cuda:
+        # # wrap input tensors in cuda tensors
+        # sample = utils.make_variable(sample, cuda=cuda)
+        # ## part I: use gradient policy method to train the generator
 
-    # # use policy gradient training when random.random() > 50%
-    if random.random()  >= 0.5:
-        print(sample)
-        print("Policy Gradient Training")
-        sys_out_batch = generator(sample) # 64 X 50 X 6632
-    else:
-        print("simple training")
+        # # use policy gradient training when random.random() > 50%
 
-exit()
-exit()
+        if random.random()  >= 0.5:
+            print("Policy Gradient Training")
+            sys_out_batch = generator(src, trg) # 64 X 50 X 6632        
+            out_batch = sys_out_batch.contiguous().view(-1, sys_out_batch.size(-1)) # (64 * 50) X 6632   
+            _,prediction = out_batch.topk(1)
+            prediction = prediction.squeeze(1) # 64*50 = 3200
+            prediction = torch.reshape(prediction, src.shape) # 64 X 50
+            g_optimizer.zero_grad()
+            with torch.no_grad():
+                reward = discriminator(src, prediction) # 64 X 1
+            
+            train_trg_batch = trg.squeeze(1) # 64 x 50
+            
+            pg_loss = pg_criterion(sys_out_batch, train_trg_batch, reward, use_cuda)
+            
+            sample_size = trg.size(0) #if args.sentence_avg else sample['ntokens'] # 64
+            logging_loss = pg_loss / math.log(2)
+            g_logging_meters['train_loss'].update(logging_loss.item(), sample_size)
+            logging.debug(f"G policy gradient loss at batch {i}: {pg_loss.item():.3f}, lr={g_optimizer.param_groups[0]['lr']}")
+            
+            pg_loss.backward()
+            torch.nn.utils.clip_grad_norm_(generator.parameters(), args.clip_norm)
+            g_optimizer.step()
+            # exit()
+                
+        else:
+            print("Maximum Likelihood training")
+            sys_out_batch = generator(src, trg)
+
+            out_batch = sys_out_batch.contiguous().view(-1, sys_out_batch.size(-1)) # (64 X 50) X 6632  
+
+            train_trg_batch = trg.view(-1) # 64*50 = 3200
+
+            loss = g_criterion(out_batch, train_trg_batch)
+            
+            sample_size = trg.size(0) #if args.sentence_avg else sample['ntokens'] # check this line
+            nsentences = trg.size(0)
+            logging_loss = loss.data / sample_size / math.log(2)
+            g_logging_meters['bsz'].update(nsentences)
+            g_logging_meters['train_loss'].update(logging_loss, sample_size)
+            logging.debug(f"G MLE loss at batch {i}: {g_logging_meters['train_loss'].avg:.3f}, lr={g_optimizer.param_groups[0]['lr']}")
+            g_optimizer.zero_grad()
+            loss.backward()
+            # all-reduce grads and rescale by grad_denom
+            for p in generator.parameters():
+                if p.requires_grad:
+                    p.grad.data.div_(sample_size)
+            torch.nn.utils.clip_grad_norm_(generator.parameters(), args.clip_norm)
+            g_optimizer.step()
+
+        
+
+
 
 
 
@@ -201,8 +273,12 @@ exit()
     #     shard_id=args.distributed_rank,
     #     num_shards=args.distributed_world_size,
     # )
-
+    
+    
+#__________________________________________________________________________________________________________________________
 # main training loop
+
+exit()
 for epoch_i in range(1, args.epochs + 1):
     logging.info("At {0}-th epoch.".format(epoch_i))
 
@@ -242,10 +318,10 @@ for epoch_i in range(1, args.epochs + 1):
              
             _,prediction = out_batch.topk(1)
             prediction = prediction.squeeze(1) # 64*50 = 3200
-            prediction = torch.reshape(prediction, sample['net_input']['src_tokens'].shape) # 64 X 50
+            prediction = torch.reshape(prediction, src.shape) # 64 X 50
             
             with torch.no_grad():
-                reward = discriminator(sample['net_input']['src_tokens'], prediction) # 64 X 1
+                reward = discriminator(src, prediction) # 64 X 1
 
             train_trg_batch = sample['target'] # 64 x 50
             
